@@ -2,3 +2,10 @@
 .Rhistory
 .RData
 .Ruserdata
+
+#DS Store
+.DS_Store
+
+week*/.DS_Store
+
+week*/data/.DS_Store

@@ -1,0 +1,124 @@
+---
+title: "Discussion 3: Santa Barbara Birds"
+format: html
+editor: visual
+---
+
+# 1. Get Started
+```{r}
+# Load packages
+library(here)
+library(tmap)
+library(sf)
+library(tidyverse)
+```
+
+
+```{r}
+sb_protected_areas <- st_read(here("data", "cpad_super_units_sb.shp")) |>  
+  st_transform("ESRI:102009")
+
+sb_city_boundaries <- st_read(here("data", "sb_city_boundaries_2003.shp")) |> 
+  st_transform("ESRI:102009")
+
+sb_county_boundary <- st_read(here("data", "sb_county_boundary_2020.shp")) |> 
+  st_transform("ESRI:102009")
+
+aves <- st_read(here("data", "aves_observations_2020_2024.shp")) |> 
+  st_transform("ESRI:102009")
+```
+
+# 2. Bird Observations within Protected Areas, Santa Barbara
+
+```{r}
+spatial_subset <- sb_protected_areas[aves, ]
+
+spatial_join <- st_join(aves, sb_protected_areas)
+```
+
+```{r}
+# Map subset of birds
+tm_shape(sb_county_boundary) +
+  tm_polygons() +
+  tm_shape(sb_protected_areas) +
+  tm_polygons(fill = "green3", fill_alpha = 0.5) +
+  tm_shape(spatial_subset) +
+  tm_dots(size = 0.3)
+
+# Map spatial join of birds
+tm_shape(sb_county_boundary) +
+  tm_polygons() +
+  tm_shape(sb_protected_areas) +
+  tm_polygons(fill = "green3", fill_alpha = 0.5) +
+  tm_shape(spatial_join) +
+  tm_dots(size = 0.3)
+
+```
+
+```{r}
+pa_buffer5km <- st_buffer(x = sb_protected_areas, dist = 5000)
+
+# Map PAs & buffers
+
+tm_shape(sb_county_boundary) +
+  tm_polygons() +
+tm_shape(sb_protected_areas) +
+  tm_polygons(fill = "green3", fill_alpha = 0.5) +
+tm_shape(pa_buffer5km) +
+  tm_polygons("darkgreen", fill_alpha = 0.5)
+
+# Subset 5km buffers to geometries that have bird observations in them
+buffers_subset <- pa_buffer5km[aves, ]
+pa_buffers_subset <- sb_protected_areas[buffers_subset, ]
+
+tm_shape(sb_county_boundary) +
+  tm_polygons() +
+tm_shape(sb_protected_areas) +
+  tm_polygons(fill = "green3", fill_alpha = 0.5) +
+tm_shape(pa_buffers_subset) +
+  tm_polygons("darkgreen", fill_alpha = 0.5) +
+tm_shape(buffers_subset) +
+  tm_dots(size = 0.3)
+```
+
+# 3. Find Protected Areas within 15km of Goleta
+
+```{r}
+goleta <- sb_city_boundaries |> 
+  filter(NAME == "Goleta")
+```
+
+```{r}
+goleta_buffer15km <- st_buffer(x = goleta, dist = 15000)
+
+# Map Goleta buffer
+tm_shape(sb_county_boundary) +
+  tm_polygons() +
+tm_shape(goleta_buffer15km) +
+  tm_polygons(fill = "blue3", fill_alpha = 0.3)
+```
+
+```{r}
+intersects_pa_goleta_sgbp <- st_intersects(x = sb_protected_areas, y = goleta_buffer15km) 
+
+intersects_pa_goleta_logical <- lengths(intersects_pa_goleta_sgbp) > 0
+
+intersects_pa_goleta <- sb_protected_areas[intersects_pa_goleta_logical, ]
+
+tm_shape(sb_county_boundary) +
+  tm_polygons() +
+tm_shape(goleta_buffer15km) +
+  tm_polygons(fill = "blue3", fill_alpha = 0.3) +
+tm_shape(intersects_pa_goleta) +
+  tm_polygons(fill = "green3", fill_alpha = 0.3)
+```
+
+# 4. Find Distance between Goleta & Hot Springs Canyon
+
+```{r}
+hotsprings_canyon <- 
+
+# Find distance between edges
+st_distance(goleta, )
+```
+

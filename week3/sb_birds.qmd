@@ -5,6 +5,7 @@ editor: visual
 ---
 
 # 1. Get Started
+
 ```{r}
 # Load packages
 library(here)
@@ -12,7 +13,6 @@ library(tmap)
 library(sf)
 library(tidyverse)
 ```
-
 
 ```{r}
 sb_protected_areas <- st_read(here("data", "cpad_super_units_sb.shp")) |>  
@@ -116,9 +116,18 @@ tm_shape(intersects_pa_goleta) +
 # 4. Find Distance between Goleta & Hot Springs Canyon
 
 ```{r}
-hotsprings_canyon <- 
+hotsprings_canyon <- sb_protected_areas |> 
+  filter(UNIT_NAME == "Hot Springs Canyon")
 
 # Find distance between edges
-st_distance(goleta, )
+hotsprings_dist <- st_distance(goleta, hotsprings_canyon)
+```
+
+```{r}
+# Calculate the geometric center
+hotsprings_centroid <- st_centroid(hotsprings_canyon)
+goleta_centroid <- st_centroid(goleta)
+
+hotsprings_dist_centroid <- st_distance(goleta_centroid, hotsprings_centroid)
 ```
 

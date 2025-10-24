@@ -1,0 +1,29 @@
+---
+title: "Discussion 4: Peru Rasters"
+format: html
+editor: visual
+---
+
+```{r}
+pacman::p_load('tidyverse', 'spData', 'spDataLarge', 'sf', 'stars', 'terra')
+```
+
+
+```{r}
+dem <- terra::rast(system.file("raster/dem.tif", package = "spDataLarge"))
+landsat <- terra::rast(system.file("raster/landsat.tif", package = "spDataLarge"))
+srtm <- terra::rast(system.file("raster/srtm.tif", package = "spDataLarge"))
+peru <- stars::read_stars(here::here("data", "PER_elv.tif"))
+peru <- rast(peru)
+```
+
+```{r}
+# Plot dem histogram
+hist(dem)
+
+# Plot dem boxplot
+boxplot(dem)
+
+
+```
+

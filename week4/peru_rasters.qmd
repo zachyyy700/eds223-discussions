@@ -1,0 +1,81 @@
+---
+title: "Discussion 4: Peru Rasters"
+format: html
+editor: visual
+---
+
+```{r}
+# Load packages
+pacman::p_load('tidyverse', 'spData', 'spDataLarge', 'sf', 'stars', 'terra')
+```
+
+
+```{r}
+# Load data from spDataLarge
+dem <- terra::rast(system.file("raster/dem.tif", package = "spDataLarge"))
+landsat <- terra::rast(system.file("raster/landsat.tif", package = "spDataLarge"))
+srtm <- terra::rast(system.file("raster/srtm.tif", package = "spDataLarge"))
+```
+
+```{r}
+# Plot dem histogram
+hist(dem)
+
+# Plot dem boxplot
+boxplot(dem)
+```
+
+```{r}
+# Reclassify 
+rcl <- matrix(c(0, 300, 1,
+                300,500, 2,
+                500, 1100, 3),
+              ncol = 3, byrow = TRUE)
+
+dem_rcl <- classify(dem, rcl = rcl)
+```
+
+```{r}
+# Assign labels to the numerical categories
+levels(dem_rcl) <- tibble::tibble(id = 1:3, 
+                                  cats = c("low", "medium", "high"))
+
+elevation_means2 <- zonal(dem, dem_rcl, fun="mean")
+```
+
+```{r}
+# Scale function
+scale_factor <- 0.0001
+offset <- 0
+scale_function <- function(x) {
+  x * scale_factor + offset
+}
+
+scaled_landsat <- app(landsat, scale_function)
+```
+
+```{r}
+# NDWI function
+ndwi_fun <- function(nir, green) {
+  (green - nir) / (green + nir)
+}
+
+# NDVI function
+ndvi_fun <- function(nir, red) {
+  (nir - red) / (nir + red)
+}
+```
+
+```{r}
+# Apply functions to new raster
+ndwi_rast <- lapp(scaled_landsat[[c(4,2)]], fun = ndwi_fun)
+
+ndvi_rast <- lapp(scaled_landsat[[c(4,3)]], fun = ndvi_fun)
+```
+
+```{r}
+plot(ndwi_rast)
+
+plot(ndvi_rast)
+```
+

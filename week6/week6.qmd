@@ -1,0 +1,167 @@
+---
+title: "week6"
+format: html
+---
+
+```{r}
+# Load packages
+library(tidyverse)
+library(sf)
+library(terra)
+library(tmap)
+library(tmaptools)
+```
+
+```{r}
+# Set directory for folder
+pre_fire_dir <- here::here("data", "LC80340322016189-SC20170128091153")
+
+# Create a list of all images that have the extension .tif and contain the word band
+pre_fire_bands <- list.files(pre_fire_dir,
+                             pattern = glob2rx("*band*.tif$"),
+                             full.names = TRUE)
+# Create a raster stack
+pre_fire_rast <- rast(pre_fire_bands)
+
+# Read mask raster
+pre_mask <- rast(here::here("data", "LC80340322016189-SC20170128091153", "LC80340322016189LGN00_cfmask_crop.tif"))
+```
+
+```{r}
+# Set directory for folder
+post_fire_dir <- here::here("data", "LC80340322016205-SC20170127160728")
+
+# Create a list of all images that have the extension .tif and contain the word band
+post_fire_bands <- list.files(post_fire_dir,
+                             pattern = glob2rx("*band*.tif$"),
+                             full.names = TRUE)
+# Create a raster stack
+post_fire_rast <- rast(post_fire_bands)
+
+# Read mask raster
+post_mask <- rast(here::here("data", "LC80340322016205-SC20170127160728", "LC80340322016205LGN00_cfmask_crop.tif"))
+```
+
+```{r}
+# Define Normalized Burn Ratio function
+nbr_fun <- function(nir, swir2){
+    (nir - swir2)/(nir + swir2)
+}
+```
+
+## 2. Rename bands & mask out clouds/shadows
+
+```{r}
+# Rename bands
+bands <- c("Aerosol", "Blue", "Green", "Red", "NIR", "SWIR1", "SWIR2")
+names(pre_fire_rast) <- bands
+names(post_fire_rast) <- bands
+```
+
+```{r}
+# Set all cells with values greater than 0 to NA
+pre_mask[pre_mask > 0] <- NA
+
+# Subset raster based on mask
+pre_fire_rast <- mask(pre_fire_rast, mask = pre_mask)
+
+# View raster
+plot(pre_fire_rast)
+```
+
+```{r}
+# Set all cells with values greater than 0 to NA
+post_mask[post_mask > 0] <- NA
+
+# Subset raster based on mask
+post_fire_rast <- mask(post_fire_rast, mask = post_mask)
+
+# View raster
+plot(post_fire_rast)
+```
+
+## 3. Plot true & false color composites
+
+Bands Table
+```{r}
+attr_layers_df = tibble::tribble(
+  ~Band, ~Wavelengths,
+  "Band 1", "430 - 450 nm (coastal aerosol)",
+  "Band 2", "450 - 510 nm (blue)",
+  "Band 3", "530 - 590 nm (green)",
+  "Band 4", "640 - 670 nm (red)",
+  "Band 5", "850 - 880 nm (near infrared)",
+  "Band 6", "	1570 - 1650 nm (short-wave-infrared 1)",
+  "Band 7", "2110 - 2290 nm (short-wave-infrared 2)"
+)
+
+options(kableExtra.html.bsTable = TRUE)
+knitr::kable(attr_layers_df, 
+             caption = "Landsat-8 bands",
+             booktabs = TRUE) %>%
+  kableExtra::kable_styling("striped",
+                            latex_options = "striped", 
+                            full_width = FALSE) %>% 
+  kableExtra::column_spec(1, bold = TRUE, monospace = TRUE) 
+```
+
+
+```{r}
+# Plot true color image of pre-fire
+plotRGB(pre_fire_rast, r=4, g=3, b=2, stretch = 'lin', colNA = 'black')
+
+# Plot true color post-fire
+plotRGB(post_fire_rast, r=4, g=3, b=2, stretch = 'lin', colNA = 'black')
+```
+
+```{r}
+# Plot false color pre-fire
+plotRGB(pre_fire_rast, r=7, g=5, b=3, stretch = 'lin', colNA = 'black')
+
+# Plt false color post-fire
+plotRGB(post_fire_rast, r=7, g=5, b=3, stretch = 'lin', colNA = 'black')
+```
+
+## 4. Calculate Normalized Burn Ratio
+
+```{r}
+nbr_pre_rast <- terra::lapp(pre_fire_rast[[c(5,7)]], fun = nbr_fun)
+
+nbr_post_rast <- terra::lapp(post_fire_rast[[c(5,7)]], fun = nbr_fun)
+```
+
+## 5. Find & Plot Difference Raster
+
+```{r}
+diff_nbr <- nbr_pre_rast - nbr_post_rast
+
+tm_shape(diff_nbr) +
+  tm_raster(col.scale = tm_scale_continuous(values = 'brewer.oranges'),
+            col.legend = tm_legend(title = "Normalized Burn Ratio", orientation = 'landscape'))
+```
+
+## 6. Bonus: Classify Burn Levels
+
+```{r}
+# Set categories for severity levels
+categories <- c("Enhanced Regrowth", "Unburned", "Low Severity", "Moderate Severity", "High Severity")
+
+# Create reclassification matrix
+rcl <- matrix(c(-Inf, -0.1, 1, # group 1 ranges for Enhanced Regrowth
+                -0.1, 0.1, 2, # group 2 ranges for Unburned
+                0.1, 0.27, 3, # group 3 ranges for Low Severity
+                0.27, 0.66, 4, # group 4 ranges for Moderity Severity
+                0.66, Inf, 5), # group 5 ranges for High Severity
+                ncol = 3, byrow = TRUE)
+
+# Use reclassification matrix to reclassify dNBR raster
+reclassified <- classify(diff_nbr, rcl = rcl)
+
+reclassified[is.nan(reclassified)] <- NA
+
+tm_shape(reclassified) +
+  tm_raster(col.scale = tm_scale_categorical(values = 'brewer.purples', labels = categories, value.na = '#4b4a67'),
+            col.legend = tm_legend(title = 'Severity Level', reverse = TRUE)) +
+  tm_layout(legend.outside = TRUE)
+```
+

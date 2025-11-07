@@ -1,0 +1,73 @@
+---
+title: "Discussion 2: Columbia Biodiversity"
+format: html
+---
+
+# 1. Load packages and data
+```{r}
+library(tidyverse)
+library(sf)
+library(tmap)
+```
+
+```{r}
+colombia <- st_read(here::here('data', 'Colombia', 'Colombia.shp')) |> 
+  st_transform(crs = 4326)
+
+roads <- st_read(here::here('data', 'RDLINE_colombia', 'RDLINE_colombia.shp')) |> 
+  st_transform(crs = 4326)
+
+birds <- read_csv(here::here('data', 'dataves.csv')) |> 
+  rename(long = decimal_longitude,
+         lat = decimal_latitude) |> 
+  st_as_sf(coords = c('long', 'lat'), 
+           crs = 4326)
+```
+
+# 2. View class and data types
+```{r}
+class(colombia)
+class(roads)
+class(birds)
+
+unique(st_geometry_type(colombia))
+```
+
+# 3. Select macro ecoregion & map
+```{r}
+amazonian <- colombia |> 
+  filter(N1_MacroBi == "Amazonian")
+
+tm_shape(amazonian) +
+  tm_polygons()
+```
+
+# 4. Play with CRS
+```{r}
+st_crs(colombia)
+st_crs(roads)
+st_crs(birds)
+
+st_crs(colombia)$units
+st_crs(roads)$units
+st_crs(birds)$units
+
+birds_df_coords <- birds |> 
+  mutate(lon = st_coordinates(birds)[,1],
+         lat = st_coordinates(birds)[,2]) |> 
+  st_drop_geometry()
+
+birds_resf <- birds_df_coords |> 
+  st_as_sf(coords = c("lon", "lat"), crs = 4326)
+```
+
+# 5. Map
+```{r}
+tm_shape(amazonian) +
+  tm_polygons() +
+tm_shape(roads) +
+  tm_lines() +
+tm_shape(birds_resf, bbox = st_bbox(amazonian)) +
+  tm_dots()
+```
+

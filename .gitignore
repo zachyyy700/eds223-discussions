@@ -1,5 +1,6 @@
 # Quarto render files
-week*/*.html/*_files
+week*/*.html
+week*/*_files
 
 .Rproj.user
 .Rhistory

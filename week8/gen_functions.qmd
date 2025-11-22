@@ -1,0 +1,108 @@
+---
+title: "gen_functions"
+format: html
+---
+
+```{r}
+library(terra)
+library(sf)
+library(tidyverse)
+library(here)
+library(tmap)
+```
+
+```{r}
+# Load in one raster
+test <- rast(here('data', 'landsat_20180612.tif'))
+```
+
+## 2. Create function to compute NDVI
+
+```{r}
+ndvi_fun <- function(nir, red){
+  (nir - red) / (nir + red)
+}
+```
+
+## 4. List files of interest
+
+```{r}
+landsat_files <- list.files(path = here('data'), pattern = "*.tif$", full.names = TRUE)
+```
+
+## 5. Update function to compute NDVI of file list
+
+```{r}
+ndvi_onelayer <- function(index) {
+  # Load one landsat
+  raster <- rast(landsat_files[index])
+  # Change names
+  names(raster) <- c("blue", "green", "red", "NIR", "SWIR1", "SWIR2")
+  
+  ndvi_rast <- lapp(raster[[c(4,3)]], fun = ndvi_fun)
+  
+  return(ndvi_rast)
+}
+```
+
+## 6. Compute NDVI for each file and create stack
+
+```{r}
+# Create ndvi raster stack
+ndvi_stack <- rast(map(1:8, ndvi_onelayer))
+
+# Update layer names to dates, make sure order is correct
+names(ndvi_stack) <- c("2018-06-12", "2018-08-15", 
+                       "2018-10-18", "2018-11-03", 
+                       "2019-01-22", "2019-02-23",
+                       "2019-04-12", "2019-07-01")
+```
+
+## 7. Compare NDVI across vegetation communities
+
+```{r}
+# Read in communities shapefile
+sites <- st_read(here('data', 'study_sites.shp'))
+```
+
+```{r}
+#veg_zones <- rasterize(sites, ndvi_stack, field = 'study_site')
+
+#zones_ndvi_mean <- zonal(ndvi_stack, veg_zones, fun = 'mean')
+
+zones_ndvi_mean <- terra::extract(ndvi_stack, sites, fun = 'mean') |> 
+  mutate(study_site = sites$study_site)
+
+#zones_joined <- left_join(x = zones_ndvi_mean, y = sites, by = 'study_site')
+```
+
+## 8. Tidy data
+
+```{r}
+sites_clean <- zones_ndvi_mean |> 
+  select(-ID) |> 
+  pivot_longer(!study_site) |> 
+  rename(ndvi = value) |> 
+  mutate(date = lubridate::as_date(name)) |> 
+  
+  mutate(veg_type = case_when(study_site == "forest1" ~ "forest",
+                                study_site == "forest2" ~ "forest",
+                                study_site == "forest3" ~ "forest",
+                                study_site == "grassland" ~ "grassland",
+                                study_site == "chaparral" ~ "chaparral")) |> 
+  # summarize results by vegetation type
+  group_by(veg_type, date) |> 
+  summarize("NDVI" = mean(ndvi, na.rm = TRUE))
+```
+
+```{r}
+ggplot(sites_clean, aes(x = date, y = NDVI, 
+                        group = veg_type, col = veg_type)) +
+  scale_color_manual(values = c("#EAAC8B", "#315C2B","#9EA93F")) +
+  geom_line() +
+  geom_point() +
+  theme_classic() +
+  labs(x = "", y = "Normalized Difference Vegetation Index (NDVI)", col = "Vegetation Type", title = "Seasonal Cycle of Vegetation Productivity")
+```
+
+

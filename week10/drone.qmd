@@ -3,3 +3,51 @@ title: "drone"
 format: html
 ---
 
+```{r}
+library(tidyverse)
+library(tmap)
+library(sf)
+library(terra)
+#library(tidyterra)
+```
+
+```{r}
+wetlands <- rast("../../../courses/EDS223/NCOS_Ortho.tif")
+```
+
+```{r}
+names(wetlands)
+```
+
+Band 1 - Blue; Band 2 - Green; Band 3 - Red; Band 4 - Red-Edge; Band 5 - Near Infrared
+
+```{r}
+names(wetlands) <- c("Blue", "Green", "Red", "Red-Edge", "Near Infrared")
+print(names(wetlands))
+```
+
+```{r}
+# True color image
+plotRGB(wetlands, r = 3, g = 2, b = 1, stretch = "lin")
+```
+
+Along with true color image, calculate and plot NDWI.
+
+- NDWI: Normalized Difference Water Index
+    - Normalized difference between green and nir bands
+
+```{r}
+# NDWI function
+ndwi_fun <- function(green, nir){
+    (green - nir) / (green + nir)
+}
+```
+
+```{r}
+ndwi_rast <- lapp(wetlands[[c(2, 5)]], fun = ndwi_fun)
+names(ndwi_rast) <- "ndwi"
+```
+
+```{r}
+plot(ndwi_rast)
+```
